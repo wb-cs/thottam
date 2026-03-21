@@ -1,7 +1,12 @@
-import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import dayjs from 'dayjs'
-import { db } from '../lib/db'
+import { supabase } from '../lib/supabase'
+import {
+  useWorkers,
+  useWorkDaysByDate,
+  useTasksByDate,
+  useWorkDayTasksByTaskIds,
+} from '../lib/useSupabaseQuery'
 
 export default function Tasks() {
   const [selectedDate, setSelectedDate] = useState(dayjs().format('YYYY-MM-DD'))
@@ -9,43 +14,29 @@ export default function Tasks() {
   const [newDesc, setNewDesc] = useState('')
   const [assigningTaskId, setAssigningTaskId] = useState<number | null>(null)
 
-  const tasks = useLiveQuery(
-    () => db.tasks.where('date').equals(selectedDate).toArray(),
-    [selectedDate]
-  )
+  const { data: tasks, refetch: refetchTasks } = useTasksByDate(selectedDate)
+  const { data: workers } = useWorkers('active')
+  const { data: workDays } = useWorkDaysByDate(selectedDate)
 
-  const workers = useLiveQuery(() =>
-    db.workers.where('status').equals('active').toArray()
-  )
-
-  const workDays = useLiveQuery(
-    () => db.workDays.where('date').equals(selectedDate).toArray(),
-    [selectedDate]
-  )
-
-  const allWorkDayTasks = useLiveQuery(
-    async () => {
-      const taskIds = tasks?.map((t) => t.id!) ?? []
-      if (taskIds.length === 0) return []
-      const wdts = await db.workDayTasks.toArray()
-      return wdts.filter((wdt) => taskIds.includes(wdt.taskId))
-    },
-    [tasks]
-  )
+  const taskIds = tasks?.map((t: any) => t.id) ?? []
+  const { data: allWorkDayTasks, refetch: refetchWDT } =
+    useWorkDayTasksByTaskIds(taskIds)
 
   const presentWorkerIds = new Set(
     workDays
-      ?.filter((wd) => wd.attendance === 'present' || wd.attendance === 'half-day')
-      .map((wd) => wd.workerId)
+      ?.filter(
+        (wd: any) => wd.attendance === 'present' || wd.attendance === 'half-day'
+      )
+      .map((wd: any) => wd.worker_id)
   )
 
   function getAssignedWorkerIds(taskId: number): number[] {
     return (
       allWorkDayTasks
-        ?.filter((wdt) => wdt.taskId === taskId)
-        .map((wdt) => {
-          const wd = workDays?.find((w) => w.id === wdt.workDayId)
-          return wd?.workerId ?? 0
+        ?.filter((wdt: any) => wdt.task_id === taskId)
+        .map((wdt: any) => {
+          const wd = workDays?.find((w: any) => w.id === wdt.work_day_id)
+          return wd?.worker_id ?? 0
         })
         .filter(Boolean) ?? []
     )
@@ -53,7 +44,7 @@ export default function Tasks() {
 
   async function addTask() {
     if (!newTitle.trim()) return
-    await db.tasks.add({
+    await supabase.from('tasks').insert({
       date: selectedDate,
       title: newTitle.trim(),
       description: newDesc.trim(),
@@ -61,32 +52,40 @@ export default function Tasks() {
     })
     setNewTitle('')
     setNewDesc('')
+    refetchTasks()
   }
 
   async function toggleTaskStatus(taskId: number, current: string) {
-    await db.tasks.update(taskId, {
-      status: current === 'done' ? 'pending' : 'done',
-    })
+    await supabase
+      .from('tasks')
+      .update({ status: current === 'done' ? 'pending' : 'done' })
+      .eq('id', taskId)
+    refetchTasks()
   }
 
   async function deleteTask(taskId: number) {
-    await db.workDayTasks.where('taskId').equals(taskId).delete()
-    await db.tasks.delete(taskId)
+    await supabase.from('work_day_tasks').delete().eq('task_id', taskId)
+    await supabase.from('tasks').delete().eq('id', taskId)
+    refetchTasks()
+    refetchWDT()
   }
 
   async function toggleWorkerAssignment(taskId: number, workerId: number) {
-    const wd = workDays?.find((w) => w.workerId === workerId)
+    const wd = workDays?.find((w: any) => w.worker_id === workerId)
     if (!wd) return
 
     const existing = allWorkDayTasks?.find(
-      (wdt) => wdt.taskId === taskId && wdt.workDayId === wd.id
+      (wdt: any) => wdt.task_id === taskId && wdt.work_day_id === wd.id
     )
 
     if (existing) {
-      await db.workDayTasks.delete(existing.id!)
+      await supabase.from('work_day_tasks').delete().eq('id', existing.id)
     } else {
-      await db.workDayTasks.add({ workDayId: wd.id!, taskId })
+      await supabase
+        .from('work_day_tasks')
+        .insert({ work_day_id: wd.id, task_id: taskId })
     }
+    refetchWDT()
   }
 
   return (
@@ -96,7 +95,9 @@ export default function Tasks() {
       <div className="flex items-center gap-3">
         <button
           onClick={() =>
-            setSelectedDate(dayjs(selectedDate).subtract(1, 'day').format('YYYY-MM-DD'))
+            setSelectedDate(
+              dayjs(selectedDate).subtract(1, 'day').format('YYYY-MM-DD')
+            )
           }
           className="bg-white border border-gray-300 rounded-lg px-3 py-2 hover:bg-gray-50"
         >
@@ -110,7 +111,9 @@ export default function Tasks() {
         />
         <button
           onClick={() =>
-            setSelectedDate(dayjs(selectedDate).add(1, 'day').format('YYYY-MM-DD'))
+            setSelectedDate(
+              dayjs(selectedDate).add(1, 'day').format('YYYY-MM-DD')
+            )
           }
           className="bg-white border border-gray-300 rounded-lg px-3 py-2 hover:bg-gray-50"
         >
@@ -122,7 +125,6 @@ export default function Tasks() {
         {dayjs(selectedDate).format('dddd, MMM D, YYYY')}
       </p>
 
-      {/* Add task form */}
       <div className="bg-white rounded-xl p-4 shadow-sm border border-green-200 space-y-2">
         <input
           placeholder="Task title"
@@ -152,8 +154,8 @@ export default function Tasks() {
       )}
 
       <div className="space-y-3">
-        {tasks?.map((task) => {
-          const assignedIds = getAssignedWorkerIds(task.id!)
+        {tasks?.map((task: any) => {
+          const assignedIds = getAssignedWorkerIds(task.id)
           const isAssigning = assigningTaskId === task.id
 
           return (
@@ -164,7 +166,7 @@ export default function Tasks() {
               <div className="flex items-start justify-between">
                 <div className="flex items-start gap-3">
                   <button
-                    onClick={() => toggleTaskStatus(task.id!, task.status)}
+                    onClick={() => toggleTaskStatus(task.id, task.status)}
                     className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center text-xs ${
                       task.status === 'done'
                         ? 'bg-green-600 border-green-600 text-white'
@@ -184,22 +186,23 @@ export default function Tasks() {
                       {task.title}
                     </p>
                     {task.description && (
-                      <p className="text-sm text-gray-500">{task.description}</p>
+                      <p className="text-sm text-gray-500">
+                        {task.description}
+                      </p>
                     )}
                   </div>
                 </div>
                 <button
-                  onClick={() => deleteTask(task.id!)}
+                  onClick={() => deleteTask(task.id)}
                   className="text-gray-400 hover:text-red-500 text-sm"
                 >
                   ✕
                 </button>
               </div>
 
-              {/* Assigned workers */}
               <div className="flex flex-wrap gap-1">
                 {assignedIds.map((wid) => {
-                  const worker = workers?.find((w) => w.id === wid)
+                  const worker = workers?.find((w: any) => w.id === wid)
                   return worker ? (
                     <span
                       key={wid}
@@ -213,7 +216,7 @@ export default function Tasks() {
 
               <button
                 onClick={() =>
-                  setAssigningTaskId(isAssigning ? null : task.id!)
+                  setAssigningTaskId(isAssigning ? null : task.id)
                 }
                 className="text-xs text-green-600 hover:text-green-800 font-medium"
               >
@@ -228,14 +231,14 @@ export default function Tasks() {
                     </p>
                   )}
                   {workers
-                    ?.filter((w) => presentWorkerIds.has(w.id!))
-                    .map((worker) => {
-                      const isAssigned = assignedIds.includes(worker.id!)
+                    ?.filter((w: any) => presentWorkerIds.has(w.id))
+                    .map((worker: any) => {
+                      const isAssigned = assignedIds.includes(worker.id)
                       return (
                         <button
                           key={worker.id}
                           onClick={() =>
-                            toggleWorkerAssignment(task.id!, worker.id!)
+                            toggleWorkerAssignment(task.id, worker.id)
                           }
                           className={`text-xs rounded-full px-3 py-1 border transition-colors ${
                             isAssigned

@@ -1,45 +1,66 @@
-import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
-import { db } from '../lib/db'
-import type { Worker } from '../types'
+import { supabase } from '../lib/supabase'
+import { useWorkers } from '../lib/useSupabaseQuery'
 
-const emptyWorker: Omit<Worker, 'id'> = {
+interface WorkerForm {
+  id?: number
+  name: string
+  phone: string
+  role: string
+  daily_rate: number
+  status: 'active' | 'inactive'
+}
+
+const emptyForm: WorkerForm = {
   name: '',
   phone: '',
   role: '',
-  dailyRate: 0,
+  daily_rate: 0,
   status: 'active',
-  createdAt: new Date().toISOString(),
 }
 
 export default function Workers() {
-  const workers = useLiveQuery(() => db.workers.toArray())
-  const [editing, setEditing] = useState<Partial<Worker> | null>(null)
   const [showInactive, setShowInactive] = useState(false)
+  const { data: allWorkers, refetch } = useWorkers()
+  const [editing, setEditing] = useState<WorkerForm | null>(null)
 
-  const filtered = workers?.filter(
-    (w) => showInactive || w.status === 'active'
+  const workers = allWorkers?.filter(
+    (w: any) => showInactive || w.status === 'active'
   )
 
   async function handleSave() {
-    if (!editing || !editing.name || !editing.dailyRate) return
+    if (!editing || !editing.name || !editing.daily_rate) return
 
     if (editing.id) {
-      await db.workers.update(editing.id, editing)
+      await supabase
+        .from('workers')
+        .update({
+          name: editing.name,
+          phone: editing.phone,
+          role: editing.role,
+          daily_rate: editing.daily_rate,
+          status: editing.status,
+        })
+        .eq('id', editing.id)
     } else {
-      await db.workers.add({
-        ...emptyWorker,
-        ...editing,
-        createdAt: new Date().toISOString(),
-      } as Worker)
+      await supabase.from('workers').insert({
+        name: editing.name,
+        phone: editing.phone,
+        role: editing.role,
+        daily_rate: editing.daily_rate,
+        status: editing.status,
+      })
     }
     setEditing(null)
+    refetch()
   }
 
-  async function toggleStatus(worker: Worker) {
-    await db.workers.update(worker.id!, {
-      status: worker.status === 'active' ? 'inactive' : 'active',
-    })
+  async function toggleStatus(worker: any) {
+    await supabase
+      .from('workers')
+      .update({ status: worker.status === 'active' ? 'inactive' : 'active' })
+      .eq('id', worker.id)
+    refetch()
   }
 
   return (
@@ -47,7 +68,7 @@ export default function Workers() {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-green-900">Workers</h2>
         <button
-          onClick={() => setEditing({ ...emptyWorker })}
+          onClick={() => setEditing({ ...emptyForm })}
           className="bg-green-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-green-700"
         >
           + Add Worker
@@ -71,28 +92,28 @@ export default function Workers() {
           </h3>
           <input
             placeholder="Name"
-            value={editing.name || ''}
+            value={editing.name}
             onChange={(e) => setEditing({ ...editing, name: e.target.value })}
             className="w-full border border-gray-300 rounded-lg px-3 py-2"
           />
           <input
             placeholder="Phone"
-            value={editing.phone || ''}
+            value={editing.phone}
             onChange={(e) => setEditing({ ...editing, phone: e.target.value })}
             className="w-full border border-gray-300 rounded-lg px-3 py-2"
           />
           <input
             placeholder="Role (e.g., laborer, supervisor)"
-            value={editing.role || ''}
+            value={editing.role}
             onChange={(e) => setEditing({ ...editing, role: e.target.value })}
             className="w-full border border-gray-300 rounded-lg px-3 py-2"
           />
           <input
             type="number"
             placeholder="Daily Rate"
-            value={editing.dailyRate || ''}
+            value={editing.daily_rate || ''}
             onChange={(e) =>
-              setEditing({ ...editing, dailyRate: Number(e.target.value) })
+              setEditing({ ...editing, daily_rate: Number(e.target.value) })
             }
             className="w-full border border-gray-300 rounded-lg px-3 py-2"
           />
@@ -114,12 +135,12 @@ export default function Workers() {
       )}
 
       <div className="space-y-2">
-        {filtered?.length === 0 && (
+        {workers?.length === 0 && (
           <p className="text-gray-500 text-center py-8">
             No workers yet. Add your first worker above.
           </p>
         )}
-        {filtered?.map((worker) => (
+        {workers?.map((worker: any) => (
           <div
             key={worker.id}
             className={`bg-white rounded-xl p-4 shadow-sm border flex items-center justify-between ${
@@ -131,7 +152,7 @@ export default function Workers() {
             <div>
               <p className="font-semibold text-green-900">{worker.name}</p>
               <p className="text-sm text-gray-500">
-                {worker.role} · ₹{worker.dailyRate}/day
+                {worker.role} · ₹{worker.daily_rate}/day
               </p>
               {worker.phone && (
                 <p className="text-sm text-gray-400">{worker.phone}</p>
@@ -139,7 +160,16 @@ export default function Workers() {
             </div>
             <div className="flex gap-2">
               <button
-                onClick={() => setEditing(worker)}
+                onClick={() =>
+                  setEditing({
+                    id: worker.id,
+                    name: worker.name,
+                    phone: worker.phone,
+                    role: worker.role,
+                    daily_rate: worker.daily_rate,
+                    status: worker.status,
+                  })
+                }
                 className="text-green-600 hover:text-green-800 text-sm font-medium"
               >
                 Edit

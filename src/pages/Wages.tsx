@@ -1,9 +1,7 @@
-import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import dayjs from 'dayjs'
 import isoWeek from 'dayjs/plugin/isoWeek'
-import { db } from '../lib/db'
-import type { Worker, WorkDay } from '../types'
+import { useWorkers, useWorkDaysByRange } from '../lib/useSupabaseQuery'
 
 dayjs.extend(isoWeek)
 
@@ -15,36 +13,14 @@ function getWeekLabel(date: string) {
   return `${start.format('MMM D')} – ${end.format('MMM D, YYYY')}`
 }
 
-function computeSummary(worker: Worker, wds: WorkDay[]) {
-  const presentDays = wds.filter((wd) => wd.attendance === 'present').length
-  const halfDays = wds.filter((wd) => wd.attendance === 'half-day').length
-  const totalOvertime = wds.reduce((sum, wd) => sum + wd.overtimeHours, 0)
-
-  const effectiveDays = presentDays + halfDays * 0.5
-  const dailyWage = effectiveDays * worker.dailyRate
-  const overtimeRate = worker.dailyRate / 8
-  const overtimeWage = totalOvertime * overtimeRate * 1.5
-
-  return {
-    worker,
-    presentDays,
-    halfDays,
-    totalOvertime,
-    effectiveDays,
-    dailyWage,
-    overtimeWage,
-    totalWage: dailyWage + overtimeWage,
-  }
-}
-
 export default function Wages() {
   const [viewMode, setViewMode] = useState<ViewMode>('weekly')
   const [month, setMonth] = useState(dayjs().format('YYYY-MM'))
-  const [weekOf, setWeekOf] = useState(dayjs().startOf('isoWeek').format('YYYY-MM-DD'))
-
-  const workers = useLiveQuery(() =>
-    db.workers.where('status').equals('active').toArray()
+  const [weekOf, setWeekOf] = useState(
+    dayjs().startOf('isoWeek').format('YYYY-MM-DD')
   )
+
+  const { data: workers } = useWorkers('active')
 
   const startDate =
     viewMode === 'monthly'
@@ -56,20 +32,39 @@ export default function Wages() {
       ? dayjs(month).endOf('month').format('YYYY-MM-DD')
       : dayjs(weekOf).endOf('isoWeek').format('YYYY-MM-DD')
 
-  const workDays = useLiveQuery(
-    () =>
-      db.workDays
-        .where('date')
-        .between(startDate, endDate, true, true)
-        .toArray(),
-    [startDate, endDate]
-  )
+  const { data: workDays } = useWorkDaysByRange(startDate, endDate)
 
   const summaries =
     workers
-      ?.map((w) => {
-        const wds = workDays?.filter((wd) => wd.workerId === w.id) ?? []
-        return computeSummary(w, wds)
+      ?.map((worker: any) => {
+        const wds =
+          workDays?.filter((wd: any) => wd.worker_id === worker.id) ?? []
+        const presentDays = wds.filter(
+          (wd: any) => wd.attendance === 'present'
+        ).length
+        const halfDays = wds.filter(
+          (wd: any) => wd.attendance === 'half-day'
+        ).length
+        const totalOvertime = wds.reduce(
+          (sum: number, wd: any) => sum + (wd.overtime_hours || 0),
+          0
+        )
+
+        const effectiveDays = presentDays + halfDays * 0.5
+        const dailyWage = effectiveDays * worker.daily_rate
+        const overtimeRate = worker.daily_rate / 8
+        const overtimeWage = totalOvertime * overtimeRate * 1.5
+
+        return {
+          worker,
+          presentDays,
+          halfDays,
+          totalOvertime,
+          effectiveDays,
+          dailyWage,
+          overtimeWage,
+          totalWage: dailyWage + overtimeWage,
+        }
       })
       .filter((s) => s.effectiveDays > 0 || s.totalOvertime > 0) ?? []
 
@@ -79,7 +74,9 @@ export default function Wages() {
     if (viewMode === 'monthly') {
       setMonth(dayjs(month).subtract(1, 'month').format('YYYY-MM'))
     } else {
-      setWeekOf(dayjs(weekOf).subtract(1, 'week').startOf('isoWeek').format('YYYY-MM-DD'))
+      setWeekOf(
+        dayjs(weekOf).subtract(1, 'week').startOf('isoWeek').format('YYYY-MM-DD')
+      )
     }
   }
 
@@ -87,7 +84,9 @@ export default function Wages() {
     if (viewMode === 'monthly') {
       setMonth(dayjs(month).add(1, 'month').format('YYYY-MM'))
     } else {
-      setWeekOf(dayjs(weekOf).add(1, 'week').startOf('isoWeek').format('YYYY-MM-DD'))
+      setWeekOf(
+        dayjs(weekOf).add(1, 'week').startOf('isoWeek').format('YYYY-MM-DD')
+      )
     }
   }
 
@@ -100,7 +99,6 @@ export default function Wages() {
         </span>
       </div>
 
-      {/* View mode toggle */}
       <div className="flex bg-gray-100 rounded-lg p-1">
         <button
           onClick={() => setViewMode('weekly')}
@@ -124,7 +122,6 @@ export default function Wages() {
         </button>
       </div>
 
-      {/* Period selector */}
       <div className="flex items-center gap-3">
         <button
           onClick={prevPeriod}
@@ -183,7 +180,7 @@ export default function Wages() {
                   {s.worker.name}
                 </p>
                 <p className="text-xs text-gray-400">
-                  ₹{s.worker.dailyRate}/day
+                  ₹{s.worker.daily_rate}/day
                 </p>
               </div>
               <p className="text-xl font-bold text-green-700">
@@ -200,9 +197,7 @@ export default function Wages() {
               </div>
               <div className="bg-yellow-50 rounded-lg p-2">
                 <p className="text-gray-500">Half</p>
-                <p className="font-semibold text-yellow-800">
-                  {s.halfDays}
-                </p>
+                <p className="font-semibold text-yellow-800">{s.halfDays}</p>
               </div>
               <div className="bg-blue-50 rounded-lg p-2">
                 <p className="text-gray-500">OT hrs</p>

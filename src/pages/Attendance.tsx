@@ -1,8 +1,13 @@
-import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import dayjs from 'dayjs'
-import { db } from '../lib/db'
-import type { AttendanceStatus, Task } from '../types'
+import { supabase } from '../lib/supabase'
+import {
+  useWorkers,
+  useWorkDaysByDate,
+  useTasksByDate,
+  useWorkDayTasksByWorkDayIds,
+} from '../lib/useSupabaseQuery'
+import type { AttendanceStatus } from '../types'
 
 const statusOptions: { value: AttendanceStatus; label: string; color: string }[] = [
   { value: 'present', label: 'Present', color: 'bg-green-100 text-green-800 border-green-300' },
@@ -13,90 +18,83 @@ const statusOptions: { value: AttendanceStatus; label: string; color: string }[]
 export default function Attendance() {
   const [selectedDate, setSelectedDate] = useState(dayjs().format('YYYY-MM-DD'))
 
-  const workers = useLiveQuery(() =>
-    db.workers.where('status').equals('active').toArray()
-  )
+  const { data: workers } = useWorkers('active')
+  const { data: workDays, refetch: refetchWorkDays } = useWorkDaysByDate(selectedDate)
+  const { data: tasks } = useTasksByDate(selectedDate)
 
-  const workDays = useLiveQuery(
-    () => db.workDays.where('date').equals(selectedDate).toArray(),
-    [selectedDate]
-  )
+  const workDayIds = workDays?.map((wd: any) => wd.id) ?? []
+  const { data: workDayTasks } = useWorkDayTasksByWorkDayIds(workDayIds)
 
-  const workDayMap = new Map(workDays?.map((wd) => [wd.workerId, wd]))
+  const workDayMap = new Map(workDays?.map((wd: any) => [wd.worker_id, wd]))
 
-  const tasks = useLiveQuery(
-    () => db.tasks.where('date').equals(selectedDate).toArray(),
-    [selectedDate]
-  )
-
-  const workDayTasks = useLiveQuery(
-    async () => {
-      const wdIds = workDays?.map((wd) => wd.id!) ?? []
-      if (wdIds.length === 0) return []
-      return db.workDayTasks.where('workDayId').anyOf(wdIds).toArray()
-    },
-    [workDays]
-  )
-
-  function getWorkerTasks(workDayId: number | undefined): Task[] {
+  function getWorkerTasks(workDayId: number | undefined) {
     if (!workDayId || !workDayTasks || !tasks) return []
     const taskIds = workDayTasks
-      .filter((wdt) => wdt.workDayId === workDayId)
-      .map((wdt) => wdt.taskId)
-    return tasks.filter((t) => taskIds.includes(t.id!))
+      .filter((wdt: any) => wdt.work_day_id === workDayId)
+      .map((wdt: any) => wdt.task_id)
+    return tasks.filter((t: any) => taskIds.includes(t.id))
   }
 
-  async function setAttendance(
-    workerId: number,
-    attendance: AttendanceStatus
-  ) {
+  async function setAttendance(workerId: number, attendance: AttendanceStatus) {
     const existing = workDayMap.get(workerId)
     if (existing) {
-      await db.workDays.update(existing.id!, { attendance })
+      await supabase
+        .from('work_days')
+        .update({ attendance })
+        .eq('id', existing.id)
     } else {
-      await db.workDays.add({
-        workerId,
+      await supabase.from('work_days').insert({
+        worker_id: workerId,
         date: selectedDate,
         attendance,
-        overtimeHours: 0,
+        overtime_hours: 0,
         notes: '',
       })
     }
+    refetchWorkDays()
   }
 
   async function setOvertime(workerId: number, hours: number) {
     const existing = workDayMap.get(workerId)
     if (existing) {
-      await db.workDays.update(existing.id!, { overtimeHours: hours })
+      await supabase
+        .from('work_days')
+        .update({ overtime_hours: hours })
+        .eq('id', existing.id)
+      refetchWorkDays()
     }
   }
 
   async function setNotes(workerId: number, notes: string) {
     const existing = workDayMap.get(workerId)
     if (existing) {
-      await db.workDays.update(existing.id!, { notes })
+      await supabase
+        .from('work_days')
+        .update({ notes })
+        .eq('id', existing.id)
+      refetchWorkDays()
     }
   }
 
   async function markAllPresent() {
-    const ops = (workers || []).map(async (worker) => {
-      const existing = workDayMap.get(worker.id!)
-      if (!existing) {
-        await db.workDays.add({
-          workerId: worker.id!,
-          date: selectedDate,
-          attendance: 'present',
-          overtimeHours: 0,
-          notes: '',
-        })
-      }
-    })
-    await Promise.all(ops)
+    const inserts = (workers || [])
+      .filter((w: any) => !workDayMap.has(w.id))
+      .map((w: any) => ({
+        worker_id: w.id,
+        date: selectedDate,
+        attendance: 'present' as const,
+        overtime_hours: 0,
+        notes: '',
+      }))
+    if (inserts.length > 0) {
+      await supabase.from('work_days').insert(inserts)
+      refetchWorkDays()
+    }
   }
 
   const presentCount =
     workDays?.filter(
-      (wd) => wd.attendance === 'present' || wd.attendance === 'half-day'
+      (wd: any) => wd.attendance === 'present' || wd.attendance === 'half-day'
     ).length ?? 0
 
   return (
@@ -152,8 +150,10 @@ export default function Attendance() {
       )}
 
       <div className="space-y-3">
-        {workers?.map((worker) => {
-          const wd = workDayMap.get(worker.id!)
+        {workers?.map((worker: any) => {
+          const wd = workDayMap.get(worker.id)
+          const workerTasks = getWorkerTasks(wd?.id)
+
           return (
             <div
               key={worker.id}
@@ -170,7 +170,7 @@ export default function Attendance() {
                 {statusOptions.map((opt) => (
                   <button
                     key={opt.value}
-                    onClick={() => setAttendance(worker.id!, opt.value)}
+                    onClick={() => setAttendance(worker.id, opt.value)}
                     className={`flex-1 text-xs font-medium py-2 rounded-lg border transition-colors ${
                       wd?.attendance === opt.value
                         ? opt.color
@@ -190,9 +190,9 @@ export default function Attendance() {
                       type="number"
                       min="0"
                       step="0.5"
-                      value={wd.overtimeHours || ''}
+                      value={wd.overtime_hours || ''}
                       onChange={(e) =>
-                        setOvertime(worker.id!, Number(e.target.value))
+                        setOvertime(worker.id, Number(e.target.value))
                       }
                       className="w-full border border-gray-300 rounded-lg px-2 py-1 text-sm"
                     />
@@ -201,37 +201,32 @@ export default function Attendance() {
                     <label className="text-xs text-gray-500">Notes</label>
                     <input
                       value={wd.notes}
-                      onChange={(e) => setNotes(worker.id!, e.target.value)}
+                      onChange={(e) => setNotes(worker.id, e.target.value)}
                       className="w-full border border-gray-300 rounded-lg px-2 py-1 text-sm"
                     />
                   </div>
                 </div>
               )}
 
-              {/* Assigned tasks */}
-              {wd && (() => {
-                const workerTasks = getWorkerTasks(wd.id)
-                if (workerTasks.length === 0) return null
-                return (
-                  <div className="pt-1">
-                    <p className="text-xs text-gray-500 mb-1">Tasks</p>
-                    <div className="flex flex-wrap gap-1">
-                      {workerTasks.map((task) => (
-                        <span
-                          key={task.id}
-                          className={`text-xs rounded-full px-2 py-0.5 ${
-                            task.status === 'done'
-                              ? 'bg-green-100 text-green-700 line-through'
-                              : 'bg-blue-100 text-blue-700'
-                          }`}
-                        >
-                          {task.title}
-                        </span>
-                      ))}
-                    </div>
+              {workerTasks.length > 0 && (
+                <div className="pt-1">
+                  <p className="text-xs text-gray-500 mb-1">Tasks</p>
+                  <div className="flex flex-wrap gap-1">
+                    {workerTasks.map((task: any) => (
+                      <span
+                        key={task.id}
+                        className={`text-xs rounded-full px-2 py-0.5 ${
+                          task.status === 'done'
+                            ? 'bg-green-100 text-green-700 line-through'
+                            : 'bg-blue-100 text-blue-700'
+                        }`}
+                      >
+                        {task.title}
+                      </span>
+                    ))}
                   </div>
-                )
-              })()}
+                </div>
+              )}
             </div>
           )
         })}

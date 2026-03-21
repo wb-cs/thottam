@@ -1,38 +1,22 @@
-import { useLiveQuery } from 'dexie-react-hooks'
 import dayjs from 'dayjs'
-import { db } from '../lib/db'
 import { Link } from 'react-router-dom'
+import { useWorkers, useWorkDaysByDate, useTasksByDate } from '../lib/useSupabaseQuery'
 
 export default function Dashboard() {
   const today = dayjs().format('YYYY-MM-DD')
 
-  const activeWorkers = useLiveQuery(() =>
-    db.workers.where('status').equals('active').count()
-  )
+  const { data: workers } = useWorkers('active')
+  const { data: workDays } = useWorkDaysByDate(today)
+  const { data: tasks } = useTasksByDate(today)
 
-  const todayAttendance = useLiveQuery(() =>
-    db.workDays.where('date').equals(today).count()
-  )
-
-  const todayPresent = useLiveQuery(() =>
-    db.workDays
-      .where('date')
-      .equals(today)
-      .filter((wd) => wd.attendance === 'present' || wd.attendance === 'half-day')
-      .count()
-  )
-
-  const todayTasks = useLiveQuery(() =>
-    db.tasks.where('date').equals(today).count()
-  )
-
-  const todayTasksDone = useLiveQuery(() =>
-    db.tasks
-      .where('date')
-      .equals(today)
-      .filter((t) => t.status === 'done')
-      .count()
-  )
+  const activeCount = workers?.length ?? 0
+  const presentCount =
+    workDays?.filter(
+      (wd: any) => wd.attendance === 'present' || wd.attendance === 'half-day'
+    ).length ?? 0
+  const attendanceCount = workDays?.length ?? 0
+  const totalTasks = tasks?.length ?? 0
+  const doneTasks = tasks?.filter((t: any) => t.status === 'done').length ?? 0
 
   return (
     <div className="space-y-6">
@@ -47,7 +31,7 @@ export default function Dashboard() {
           className="bg-white rounded-xl p-4 shadow-sm border border-green-100 hover:shadow-md transition-shadow"
         >
           <p className="text-sm text-gray-500">Active Workers</p>
-          <p className="text-3xl font-bold text-green-700">{activeWorkers ?? 0}</p>
+          <p className="text-3xl font-bold text-green-700">{activeCount}</p>
         </Link>
 
         <Link
@@ -56,10 +40,8 @@ export default function Dashboard() {
         >
           <p className="text-sm text-gray-500">Present Today</p>
           <p className="text-3xl font-bold text-green-700">
-            {todayPresent ?? 0}
-            <span className="text-base text-gray-400">
-              /{todayAttendance ?? 0}
-            </span>
+            {presentCount}
+            <span className="text-base text-gray-400">/{attendanceCount}</span>
           </p>
         </Link>
 
@@ -69,9 +51,9 @@ export default function Dashboard() {
         >
           <p className="text-sm text-gray-500">Today's Tasks</p>
           <p className="text-3xl font-bold text-green-700">
-            {todayTasksDone ?? 0}
+            {doneTasks}
             <span className="text-base text-gray-400">
-              /{todayTasks ?? 0} completed
+              /{totalTasks} completed
             </span>
           </p>
         </Link>
