@@ -1,6 +1,8 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { useState, useRef, useEffect } from 'react'
+import { NavLink, Outlet, Link } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext'
 import { useLoading } from '../lib/LoadingContext'
+import { useSettings } from '../lib/SettingsContext'
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: '📊' },
@@ -13,21 +15,63 @@ const navItems = [
 export default function Layout() {
   const { signOut, user } = useAuth()
   const { isLoading } = useLoading()
+  const { farmName } = useSettings()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    if (menuOpen) document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [menuOpen])
 
   return (
     <div className="min-h-screen bg-green-50 flex flex-col">
       <header className="bg-green-700 text-white px-4 py-3 flex items-center justify-between shadow-md">
-        <h1 className="text-xl font-bold tracking-tight">Thottam</h1>
-        <div className="flex items-center gap-3">
-          <span className="text-green-200 text-xs hidden sm:inline">
-            {user?.email}
-          </span>
+        <h1 className="text-xl font-bold tracking-tight">{farmName}</h1>
+
+        <div className="relative" ref={menuRef}>
           <button
-            onClick={signOut}
-            className="text-green-200 hover:text-white text-sm font-medium"
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="text-white hover:text-green-200 p-1"
+            aria-label="Menu"
           >
-            Sign Out
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {menuOpen ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              )}
+            </svg>
           </button>
+
+          {menuOpen && (
+            <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-50">
+              <p className="px-4 py-2 text-xs text-gray-400 truncate border-b border-gray-100">
+                {user?.email}
+              </p>
+              <Link
+                to="/admin"
+                onClick={() => setMenuOpen(false)}
+                className="block px-4 py-2 text-sm text-gray-700 hover:bg-green-50"
+              >
+                Settings
+              </Link>
+              <button
+                onClick={() => {
+                  setMenuOpen(false)
+                  signOut()
+                }}
+                className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+              >
+                Sign Out
+              </button>
+            </div>
+          )}
         </div>
       </header>
 

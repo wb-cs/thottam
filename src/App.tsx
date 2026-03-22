@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-route
 import { useEffect } from 'react'
 import { AuthProvider, useAuth } from './lib/AuthContext'
 import { LoadingProvider } from './lib/LoadingContext'
+import { SettingsProvider } from './lib/SettingsContext'
 import { supabase } from './lib/supabase'
 import Layout from './components/Layout'
 import Login from './pages/Login'
@@ -11,6 +12,7 @@ import Workers from './pages/Workers'
 import Attendance from './pages/Attendance'
 import Tasks from './pages/Tasks'
 import Wages from './pages/Wages'
+import Admin from './pages/Admin'
 
 function AuthCallbackHandler({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate()
@@ -55,6 +57,7 @@ function ProtectedRoutes() {
         <Route path="/attendance" element={<Attendance />} />
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/wages" element={<Wages />} />
+        <Route path="/admin" element={<Admin />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
@@ -81,15 +84,17 @@ export default function App() {
   return (
     <AuthProvider>
       <LoadingProvider>
-        <BrowserRouter>
-          <AuthCallbackHandler>
-            <Routes>
-              <Route path="/login" element={<LoginRoute />} />
-              <Route path="/set-password" element={<SetPasswordRoute />} />
-              <Route path="/*" element={<ProtectedRoutes />} />
-            </Routes>
-          </AuthCallbackHandler>
-        </BrowserRouter>
+        <SettingsProvider>
+          <BrowserRouter>
+            <AuthCallbackHandler>
+              <Routes>
+                <Route path="/login" element={<LoginRoute />} />
+                <Route path="/set-password" element={<SetPasswordRoute />} />
+                <Route path="/*" element={<ProtectedRoutes />} />
+              </Routes>
+            </AuthCallbackHandler>
+          </BrowserRouter>
+        </SettingsProvider>
       </LoadingProvider>
     </AuthProvider>
   )
