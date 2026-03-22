@@ -6,6 +6,7 @@ import {
   useTasksByDate,
   useWorkDayTasksByTaskIds,
 } from '../lib/useSupabaseQuery'
+import WeeklyCalendar from '../components/WeeklyCalendar'
 
 export default function Dashboard() {
   const today = dayjs().format('YYYY-MM-DD')
@@ -151,6 +152,9 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {/* Weekly Calendar */}
+      <WeeklyCalendar />
 
       {/* Quick Actions */}
       <div className="bg-white rounded-xl p-4 shadow-sm border border-green-100">
