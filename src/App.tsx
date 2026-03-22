@@ -13,6 +13,7 @@ import Attendance from './pages/Attendance'
 import Tasks from './pages/Tasks'
 import Wages from './pages/Wages'
 import Admin from './pages/Admin'
+import Produce from './pages/Produce'
 
 function AuthCallbackHandler({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate()
@@ -57,6 +58,7 @@ function ProtectedRoutes() {
         <Route path="/attendance" element={<Attendance />} />
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/wages" element={<Wages />} />
+        <Route path="/produce" element={<Produce />} />
         <Route path="/admin" element={<Admin />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

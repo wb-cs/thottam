@@ -10,6 +10,7 @@ const navItems = [
   { to: '/attendance', label: 'Attendance', icon: '📋' },
   { to: '/tasks', label: 'Tasks', icon: '✅' },
   { to: '/wages', label: 'Wages', icon: '💰' },
+  { to: '/produce', label: 'Produce', icon: '🌾' },
 ]
 
 export default function Layout() {
