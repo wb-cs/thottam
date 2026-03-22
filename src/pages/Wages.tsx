@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import dayjs from 'dayjs'
 import isoWeek from 'dayjs/plugin/isoWeek'
-import { useWorkers, useWorkDaysByRange } from '../lib/useSupabaseQuery'
+import { supabase } from '../lib/supabase'
+import { useWorkers, useWorkDaysByRange, useSupabaseQuery } from '../lib/useSupabaseQuery'
 
 dayjs.extend(isoWeek)
 
@@ -34,6 +35,59 @@ export default function Wages() {
 
   const { data: workDays } = useWorkDaysByRange(startDate, endDate)
 
+  // Fetch contract tasks and their assignments for the period
+  const { data: contractTasks } = useSupabaseQuery(
+    () =>
+      supabase
+        .from('tasks')
+        .select('*')
+        .eq('is_contract', true)
+        .gte('date', startDate)
+        .lte('date', endDate),
+    [startDate, endDate]
+  )
+
+  const contractTaskIds = contractTasks?.map((t: any) => t.id) ?? []
+  const { data: contractAssignments } = useSupabaseQuery(
+    () => {
+      if (contractTaskIds.length === 0)
+        return Promise.resolve({ data: [] as never[], error: null })
+      return supabase
+        .from('work_day_tasks')
+        .select('*')
+        .in('task_id', contractTaskIds)
+    },
+    [contractTaskIds.join(',')]
+  )
+
+  function getWorkerContractEarnings(workerId: number): number {
+    if (!contractTasks || !contractAssignments || !workDays) return 0
+
+    const workerWorkDayIds = workDays
+      .filter((wd: any) => wd.worker_id === workerId)
+      .map((wd: any) => wd.id)
+
+    let total = 0
+    for (const task of contractTasks) {
+      const taskAssignments = contractAssignments.filter(
+        (ca: any) => ca.task_id === task.id
+      )
+      const isAssigned = taskAssignments.some((ca: any) =>
+        workerWorkDayIds.includes(ca.work_day_id)
+      )
+
+      if (isAssigned) {
+        if (task.contract_type === 'per-worker') {
+          total += Number(task.contract_amount)
+        } else {
+          // split
+          total += Number(task.contract_amount) / taskAssignments.length
+        }
+      }
+    }
+    return total
+  }
+
   const summaries =
     workers
       ?.map((worker: any) => {
@@ -54,6 +108,7 @@ export default function Wages() {
         const dailyWage = effectiveDays * worker.daily_rate
         const overtimeRate = worker.daily_rate / 8
         const overtimeWage = totalOvertime * overtimeRate * 1.5
+        const contractEarnings = getWorkerContractEarnings(worker.id)
 
         return {
           worker,
@@ -63,10 +118,13 @@ export default function Wages() {
           effectiveDays,
           dailyWage,
           overtimeWage,
-          totalWage: dailyWage + overtimeWage,
+          contractEarnings,
+          totalWage: dailyWage + overtimeWage + contractEarnings,
         }
       })
-      .filter((s) => s.effectiveDays > 0 || s.totalOvertime > 0) ?? []
+      .filter(
+        (s) => s.effectiveDays > 0 || s.totalOvertime > 0 || s.contractEarnings > 0
+      ) ?? []
 
   const grandTotal = summaries.reduce((sum, s) => sum + s.totalWage, 0)
 
@@ -188,7 +246,7 @@ export default function Wages() {
               </p>
             </div>
 
-            <div className="grid grid-cols-4 gap-2 text-center text-xs">
+            <div className="grid grid-cols-5 gap-2 text-center text-xs">
               <div className="bg-green-50 rounded-lg p-2">
                 <p className="text-gray-500">Full</p>
                 <p className="font-semibold text-green-800">
@@ -211,14 +269,26 @@ export default function Wages() {
                   {s.effectiveDays}
                 </p>
               </div>
+              <div className="bg-orange-50 rounded-lg p-2">
+                <p className="text-gray-500">Contract</p>
+                <p className="font-semibold text-orange-800">
+                  ₹{s.contractEarnings.toLocaleString('en-IN')}
+                </p>
+              </div>
             </div>
 
-            {s.overtimeWage > 0 && (
-              <p className="text-xs text-gray-400 mt-2">
-                Includes ₹{s.overtimeWage.toLocaleString('en-IN')} overtime
-                (1.5x rate)
-              </p>
-            )}
+            <div className="text-xs text-gray-400 mt-2 space-y-0.5">
+              {s.overtimeWage > 0 && (
+                <p>
+                  Overtime: ₹{s.overtimeWage.toLocaleString('en-IN')} (1.5x rate)
+                </p>
+              )}
+              {s.contractEarnings > 0 && (
+                <p>
+                  Contract work: ₹{s.contractEarnings.toLocaleString('en-IN')}
+                </p>
+              )}
+            </div>
           </div>
         ))}
       </div>

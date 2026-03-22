@@ -12,6 +12,9 @@ export default function Tasks() {
   const [selectedDate, setSelectedDate] = useState(dayjs().format('YYYY-MM-DD'))
   const [newTitle, setNewTitle] = useState('')
   const [newDesc, setNewDesc] = useState('')
+  const [isContract, setIsContract] = useState(false)
+  const [contractAmount, setContractAmount] = useState<number>(0)
+  const [contractType, setContractType] = useState<'per-worker' | 'split'>('per-worker')
   const [assigningTaskId, setAssigningTaskId] = useState<number | null>(null)
 
   const { data: tasks, refetch: refetchTasks } = useTasksByDate(selectedDate)
@@ -49,9 +52,15 @@ export default function Tasks() {
       title: newTitle.trim(),
       description: newDesc.trim(),
       status: 'pending',
+      is_contract: isContract,
+      contract_amount: isContract ? contractAmount : 0,
+      contract_type: isContract ? contractType : 'per-worker',
     })
     setNewTitle('')
     setNewDesc('')
+    setIsContract(false)
+    setContractAmount(0)
+    setContractType('per-worker')
     refetchTasks()
   }
 
@@ -125,13 +134,14 @@ export default function Tasks() {
         {dayjs(selectedDate).format('dddd, MMM D, YYYY')}
       </p>
 
+      {/* Add task form */}
       <div className="bg-white rounded-xl p-4 shadow-sm border border-green-200 space-y-2">
         <input
           placeholder="Task title"
           value={newTitle}
           onChange={(e) => setNewTitle(e.target.value)}
           className="w-full border border-gray-300 rounded-lg px-3 py-2"
-          onKeyDown={(e) => e.key === 'Enter' && addTask()}
+          onKeyDown={(e) => e.key === 'Enter' && !isContract && addTask()}
         />
         <input
           placeholder="Description (optional)"
@@ -139,6 +149,62 @@ export default function Tasks() {
           onChange={(e) => setNewDesc(e.target.value)}
           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
         />
+
+        <label className="flex items-center gap-2 text-sm text-gray-600">
+          <input
+            type="checkbox"
+            checked={isContract}
+            onChange={(e) => setIsContract(e.target.checked)}
+            className="rounded"
+          />
+          Contract task (has its own price)
+        </label>
+
+        {isContract && (
+          <div className="space-y-2 pl-6 border-l-2 border-green-200">
+            <div>
+              <label className="text-xs text-gray-500">Contract Amount (₹)</label>
+              <input
+                type="number"
+                min="0"
+                value={contractAmount || ''}
+                onChange={(e) => setContractAmount(Number(e.target.value))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                placeholder="e.g. 5000"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setContractType('per-worker')}
+                className={`flex-1 text-xs font-medium py-2 rounded-lg border transition-colors ${
+                  contractType === 'per-worker'
+                    ? 'bg-green-100 text-green-800 border-green-300'
+                    : 'bg-gray-50 text-gray-400 border-gray-200'
+                }`}
+              >
+                Per Worker
+              </button>
+              <button
+                type="button"
+                onClick={() => setContractType('split')}
+                className={`flex-1 text-xs font-medium py-2 rounded-lg border transition-colors ${
+                  contractType === 'split'
+                    ? 'bg-green-100 text-green-800 border-green-300'
+                    : 'bg-gray-50 text-gray-400 border-gray-200'
+                }`}
+              >
+                Split Equally
+              </button>
+            </div>
+            <p className="text-xs text-gray-400">
+              {contractType === 'per-worker'
+                ? 'Each assigned worker gets the full amount'
+                : 'Amount is divided equally among assigned workers'}
+            </p>
+          </div>
+        )}
+
         <button
           onClick={addTask}
           className="bg-green-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-green-700 w-full"
@@ -157,6 +223,7 @@ export default function Tasks() {
         {tasks?.map((task: any) => {
           const assignedIds = getAssignedWorkerIds(task.id)
           const isAssigning = assigningTaskId === task.id
+          const assignedCount = assignedIds.length
 
           return (
             <div
@@ -188,6 +255,15 @@ export default function Tasks() {
                     {task.description && (
                       <p className="text-sm text-gray-500">
                         {task.description}
+                      </p>
+                    )}
+                    {task.is_contract && (
+                      <p className="text-xs text-orange-600 font-medium mt-0.5">
+                        Contract: ₹{Number(task.contract_amount).toLocaleString('en-IN')}
+                        {' · '}
+                        {task.contract_type === 'per-worker'
+                          ? 'per worker'
+                          : `split${assignedCount > 0 ? ` (₹${Math.round(task.contract_amount / assignedCount).toLocaleString('en-IN')} each)` : ''}`}
                       </p>
                     )}
                   </div>

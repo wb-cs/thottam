@@ -28,7 +28,10 @@ create table tasks (
   date date not null,
   title text not null,
   description text default '',
-  status text not null default 'pending' check (status in ('pending', 'done'))
+  status text not null default 'pending' check (status in ('pending', 'done')),
+  is_contract boolean not null default false,
+  contract_amount numeric not null default 0,
+  contract_type text not null default 'per-worker' check (contract_type in ('per-worker', 'split'))
 );
 
 -- Work day tasks join table

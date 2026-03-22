@@ -25,6 +25,9 @@ export interface Task {
   title: string
   description: string
   status: 'pending' | 'done'
+  is_contract: boolean
+  contract_amount: number
+  contract_type: 'per-worker' | 'split'
 }
 
 export interface WorkDayTask {
