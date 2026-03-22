@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { useEffect } from 'react'
 import { AuthProvider, useAuth } from './lib/AuthContext'
+import { LoadingProvider } from './lib/LoadingContext'
 import { supabase } from './lib/supabase'
 import Layout from './components/Layout'
 import Login from './pages/Login'
@@ -79,15 +80,17 @@ function SetPasswordRoute() {
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <AuthCallbackHandler>
-          <Routes>
-            <Route path="/login" element={<LoginRoute />} />
-            <Route path="/set-password" element={<SetPasswordRoute />} />
-            <Route path="/*" element={<ProtectedRoutes />} />
-          </Routes>
-        </AuthCallbackHandler>
-      </BrowserRouter>
+      <LoadingProvider>
+        <BrowserRouter>
+          <AuthCallbackHandler>
+            <Routes>
+              <Route path="/login" element={<LoginRoute />} />
+              <Route path="/set-password" element={<SetPasswordRoute />} />
+              <Route path="/*" element={<ProtectedRoutes />} />
+            </Routes>
+          </AuthCallbackHandler>
+        </BrowserRouter>
+      </LoadingProvider>
     </AuthProvider>
   )
 }

@@ -7,6 +7,7 @@ import {
   useTasksByDate,
   useWorkDayTasksByTaskIds,
 } from '../lib/useSupabaseQuery'
+import { useLoading } from '../lib/LoadingContext'
 
 export default function Tasks() {
   const [selectedDate, setSelectedDate] = useState(dayjs().format('YYYY-MM-DD'))
@@ -24,6 +25,8 @@ export default function Tasks() {
   const taskIds = tasks?.map((t: any) => t.id) ?? []
   const { data: allWorkDayTasks, refetch: refetchWDT } =
     useWorkDayTasksByTaskIds(taskIds)
+
+  const { withLoading } = useLoading()
 
   const presentWorkerIds = new Set(
     workDays
@@ -47,54 +50,62 @@ export default function Tasks() {
 
   async function addTask() {
     if (!newTitle.trim()) return
-    await supabase.from('tasks').insert({
-      date: selectedDate,
-      title: newTitle.trim(),
-      description: newDesc.trim(),
-      status: 'pending',
-      is_contract: isContract,
-      contract_amount: isContract ? contractAmount : 0,
-      contract_type: isContract ? contractType : 'per-worker',
+    await withLoading(async () => {
+      await supabase.from('tasks').insert({
+        date: selectedDate,
+        title: newTitle.trim(),
+        description: newDesc.trim(),
+        status: 'pending',
+        is_contract: isContract,
+        contract_amount: isContract ? contractAmount : 0,
+        contract_type: isContract ? contractType : 'per-worker',
+      })
+      setNewTitle('')
+      setNewDesc('')
+      setIsContract(false)
+      setContractAmount(0)
+      setContractType('per-worker')
+      await refetchTasks()
     })
-    setNewTitle('')
-    setNewDesc('')
-    setIsContract(false)
-    setContractAmount(0)
-    setContractType('per-worker')
-    refetchTasks()
   }
 
   async function toggleTaskStatus(taskId: number, current: string) {
-    await supabase
-      .from('tasks')
-      .update({ status: current === 'done' ? 'pending' : 'done' })
-      .eq('id', taskId)
-    refetchTasks()
+    await withLoading(async () => {
+      await supabase
+        .from('tasks')
+        .update({ status: current === 'done' ? 'pending' : 'done' })
+        .eq('id', taskId)
+      await refetchTasks()
+    })
   }
 
   async function deleteTask(taskId: number) {
-    await supabase.from('work_day_tasks').delete().eq('task_id', taskId)
-    await supabase.from('tasks').delete().eq('id', taskId)
-    refetchTasks()
-    refetchWDT()
+    await withLoading(async () => {
+      await supabase.from('work_day_tasks').delete().eq('task_id', taskId)
+      await supabase.from('tasks').delete().eq('id', taskId)
+      await refetchTasks()
+      await refetchWDT()
+    })
   }
 
   async function toggleWorkerAssignment(taskId: number, workerId: number) {
     const wd = workDays?.find((w: any) => w.worker_id === workerId)
     if (!wd) return
 
-    const existing = allWorkDayTasks?.find(
-      (wdt: any) => wdt.task_id === taskId && wdt.work_day_id === wd.id
-    )
+    await withLoading(async () => {
+      const existing = allWorkDayTasks?.find(
+        (wdt: any) => wdt.task_id === taskId && wdt.work_day_id === wd.id
+      )
 
-    if (existing) {
-      await supabase.from('work_day_tasks').delete().eq('id', existing.id)
-    } else {
-      await supabase
-        .from('work_day_tasks')
-        .insert({ work_day_id: wd.id, task_id: taskId })
-    }
-    refetchWDT()
+      if (existing) {
+        await supabase.from('work_day_tasks').delete().eq('id', existing.id)
+      } else {
+        await supabase
+          .from('work_day_tasks')
+          .insert({ work_day_id: wd.id, task_id: taskId })
+      }
+      await refetchWDT()
+    })
   }
 
   return (

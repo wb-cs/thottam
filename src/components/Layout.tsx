@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext'
+import { useLoading } from '../lib/LoadingContext'
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: '📊' },
@@ -11,6 +12,7 @@ const navItems = [
 
 export default function Layout() {
   const { signOut, user } = useAuth()
+  const { isLoading } = useLoading()
 
   return (
     <div className="min-h-screen bg-green-50 flex flex-col">
@@ -29,11 +31,27 @@ export default function Layout() {
         </div>
       </header>
 
-      <main className="flex-1 p-4 max-w-4xl mx-auto w-full">
-        <Outlet />
-      </main>
+      {/* Loading bar */}
+      <div className="h-1 relative">
+        {isLoading && (
+          <div className="absolute inset-0 bg-green-200 overflow-hidden">
+            <div className="h-full bg-green-400 animate-loading-bar" />
+          </div>
+        )}
+      </div>
 
-      <nav className="bg-white border-t border-green-200 sticky bottom-0">
+      <div className="relative flex-1 flex flex-col">
+        {/* Darkened overlay */}
+        {isLoading && (
+          <div className="absolute inset-0 bg-black/10 z-40 pointer-events-auto" />
+        )}
+
+        <main className="flex-1 p-4 max-w-4xl mx-auto w-full">
+          <Outlet />
+        </main>
+      </div>
+
+      <nav className="bg-white border-t border-green-200 sticky bottom-0 z-50">
         <div className="flex justify-around max-w-4xl mx-auto">
           {navItems.map((item) => (
             <NavLink

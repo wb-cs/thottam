@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useWorkers } from '../lib/useSupabaseQuery'
+import { useLoading } from '../lib/LoadingContext'
 
 interface WorkerForm {
   id?: number
@@ -23,6 +24,7 @@ export default function Workers() {
   const [showInactive, setShowInactive] = useState(false)
   const { data: allWorkers, refetch } = useWorkers()
   const [editing, setEditing] = useState<WorkerForm | null>(null)
+  const { withLoading } = useLoading()
 
   const workers = allWorkers?.filter(
     (w: any) => showInactive || w.status === 'active'
@@ -31,36 +33,40 @@ export default function Workers() {
   async function handleSave() {
     if (!editing || !editing.name || !editing.daily_rate) return
 
-    if (editing.id) {
-      await supabase
-        .from('workers')
-        .update({
+    await withLoading(async () => {
+      if (editing.id) {
+        await supabase
+          .from('workers')
+          .update({
+            name: editing.name,
+            phone: editing.phone,
+            role: editing.role,
+            daily_rate: editing.daily_rate,
+            status: editing.status,
+          })
+          .eq('id', editing.id)
+      } else {
+        await supabase.from('workers').insert({
           name: editing.name,
           phone: editing.phone,
           role: editing.role,
           daily_rate: editing.daily_rate,
           status: editing.status,
         })
-        .eq('id', editing.id)
-    } else {
-      await supabase.from('workers').insert({
-        name: editing.name,
-        phone: editing.phone,
-        role: editing.role,
-        daily_rate: editing.daily_rate,
-        status: editing.status,
-      })
-    }
-    setEditing(null)
-    refetch()
+      }
+      setEditing(null)
+      await refetch()
+    })
   }
 
   async function toggleStatus(worker: any) {
-    await supabase
-      .from('workers')
-      .update({ status: worker.status === 'active' ? 'inactive' : 'active' })
-      .eq('id', worker.id)
-    refetch()
+    await withLoading(async () => {
+      await supabase
+        .from('workers')
+        .update({ status: worker.status === 'active' ? 'inactive' : 'active' })
+        .eq('id', worker.id)
+      await refetch()
+    })
   }
 
   return (

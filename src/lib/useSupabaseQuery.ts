@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from './supabase'
+import { useLoading } from './LoadingContext'
 
 export function useSupabaseQuery<T>(
   queryFn: () => PromiseLike<{ data: T | null; error: unknown }>,
@@ -7,13 +8,19 @@ export function useSupabaseQuery<T>(
 ) {
   const [data, setData] = useState<T | null>(null)
   const [loading, setLoading] = useState(true)
+  const { startLoading, stopLoading } = useLoading()
 
   const refetch = useCallback(async () => {
     setLoading(true)
-    const { data, error } = await queryFn()
-    if (error) console.error('Query error:', error)
-    setData(data)
-    setLoading(false)
+    startLoading()
+    try {
+      const { data, error } = await queryFn()
+      if (error) console.error('Query error:', error)
+      setData(data)
+    } finally {
+      setLoading(false)
+      stopLoading()
+    }
   }, deps)
 
   useEffect(() => {

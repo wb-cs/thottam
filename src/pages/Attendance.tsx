@@ -7,6 +7,7 @@ import {
   useTasksByDate,
   useWorkDayTasksByWorkDayIds,
 } from '../lib/useSupabaseQuery'
+import { useLoading } from '../lib/LoadingContext'
 import type { AttendanceStatus } from '../types'
 
 const statusOptions: { value: AttendanceStatus; label: string; color: string }[] = [
@@ -25,6 +26,8 @@ export default function Attendance() {
   const workDayIds = workDays?.map((wd: any) => wd.id) ?? []
   const { data: workDayTasks } = useWorkDayTasksByWorkDayIds(workDayIds)
 
+  const { withLoading } = useLoading()
+
   const workDayMap = new Map(workDays?.map((wd: any) => [wd.worker_id, wd]))
 
   function getWorkerTasks(workDayId: number | undefined) {
@@ -36,60 +39,68 @@ export default function Attendance() {
   }
 
   async function setAttendance(workerId: number, attendance: AttendanceStatus) {
-    const existing = workDayMap.get(workerId)
-    if (existing) {
-      await supabase
-        .from('work_days')
-        .update({ attendance })
-        .eq('id', existing.id)
-    } else {
-      await supabase.from('work_days').insert({
-        worker_id: workerId,
-        date: selectedDate,
-        attendance,
-        overtime_hours: 0,
-        notes: '',
-      })
-    }
-    refetchWorkDays()
+    await withLoading(async () => {
+      const existing = workDayMap.get(workerId)
+      if (existing) {
+        await supabase
+          .from('work_days')
+          .update({ attendance })
+          .eq('id', existing.id)
+      } else {
+        await supabase.from('work_days').insert({
+          worker_id: workerId,
+          date: selectedDate,
+          attendance,
+          overtime_hours: 0,
+          notes: '',
+        })
+      }
+      await refetchWorkDays()
+    })
   }
 
   async function setOvertime(workerId: number, hours: number) {
-    const existing = workDayMap.get(workerId)
-    if (existing) {
-      await supabase
-        .from('work_days')
-        .update({ overtime_hours: hours })
-        .eq('id', existing.id)
-      refetchWorkDays()
-    }
+    await withLoading(async () => {
+      const existing = workDayMap.get(workerId)
+      if (existing) {
+        await supabase
+          .from('work_days')
+          .update({ overtime_hours: hours })
+          .eq('id', existing.id)
+        await refetchWorkDays()
+      }
+    })
   }
 
   async function setNotes(workerId: number, notes: string) {
-    const existing = workDayMap.get(workerId)
-    if (existing) {
-      await supabase
-        .from('work_days')
-        .update({ notes })
-        .eq('id', existing.id)
-      refetchWorkDays()
-    }
+    await withLoading(async () => {
+      const existing = workDayMap.get(workerId)
+      if (existing) {
+        await supabase
+          .from('work_days')
+          .update({ notes })
+          .eq('id', existing.id)
+        await refetchWorkDays()
+      }
+    })
   }
 
   async function markAllPresent() {
-    const inserts = (workers || [])
-      .filter((w: any) => !workDayMap.has(w.id))
-      .map((w: any) => ({
-        worker_id: w.id,
-        date: selectedDate,
-        attendance: 'present' as const,
-        overtime_hours: 0,
-        notes: '',
-      }))
-    if (inserts.length > 0) {
-      await supabase.from('work_days').insert(inserts)
-      refetchWorkDays()
-    }
+    await withLoading(async () => {
+      const inserts = (workers || [])
+        .filter((w: any) => !workDayMap.has(w.id))
+        .map((w: any) => ({
+          worker_id: w.id,
+          date: selectedDate,
+          attendance: 'present' as const,
+          overtime_hours: 0,
+          notes: '',
+        }))
+      if (inserts.length > 0) {
+        await supabase.from('work_days').insert(inserts)
+        await refetchWorkDays()
+      }
+    })
   }
 
   const presentCount =
