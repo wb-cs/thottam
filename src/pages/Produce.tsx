@@ -126,25 +126,23 @@ function CatalogTab() {
             onChange={(e) => setEditing({ ...editing, name: e.target.value })}
             className="w-full border border-gray-300 rounded-lg px-3 py-2"
           />
-          <div className="flex gap-2">
-            <input
-              placeholder="Unit (kg, count, litre)"
-              value={editing.unit}
-              onChange={(e) => setEditing({ ...editing, unit: e.target.value })}
-              className="flex-1 border border-gray-300 rounded-lg px-3 py-2"
-            />
-            <select
-              value={editing.category}
-              onChange={(e) => setEditing({ ...editing, category: e.target.value })}
-              className="flex-1 border border-gray-300 rounded-lg px-3 py-2"
-            >
-              {categories.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
+          <input
+            placeholder="Unit (kg, count, litre)"
+            value={editing.unit}
+            onChange={(e) => setEditing({ ...editing, unit: e.target.value })}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2"
+          />
+          <select
+            value={editing.category}
+            onChange={(e) => setEditing({ ...editing, category: e.target.value })}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2"
+          >
+            {categories.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
           <div className="flex gap-2">
             <button
               onClick={handleSave}
@@ -247,43 +245,39 @@ function HarvestTab() {
   return (
     <div className="space-y-3">
       <div className="bg-white rounded-xl p-4 shadow-sm border border-green-200 space-y-2">
-        <div className="flex gap-2">
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
-          />
-          <select
-            value={produceId}
-            onChange={(e) => setProduceId(Number(e.target.value))}
-            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
-          >
-            <option value="">Select produce</option>
-            {produceItems?.map((p: any) => (
-              <option key={p.id} value={p.id}>
-                {p.name} ({p.unit})
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex gap-2">
-          <input
-            type="number"
-            min="0"
-            step="0.5"
-            placeholder="Quantity"
-            value={quantity || ''}
-            onChange={(e) => setQuantity(Number(e.target.value))}
-            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
-          />
-          <input
-            placeholder="Notes (optional)"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
-          />
-        </div>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+        />
+        <select
+          value={produceId}
+          onChange={(e) => setProduceId(Number(e.target.value))}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+        >
+          <option value="">Select produce</option>
+          {produceItems?.map((p: any) => (
+            <option key={p.id} value={p.id}>
+              {p.name} ({p.unit})
+            </option>
+          ))}
+        </select>
+        <input
+          type="number"
+          min="0"
+          step="0.5"
+          placeholder="Quantity"
+          value={quantity || ''}
+          onChange={(e) => setQuantity(Number(e.target.value))}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+        />
+        <input
+          placeholder="Notes (optional)"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+        />
         <button
           onClick={addHarvest}
           className="bg-green-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-green-700 w-full"
@@ -379,59 +373,53 @@ function SalesTab() {
   return (
     <div className="space-y-3">
       <div className="bg-white rounded-xl p-4 shadow-sm border border-green-200 space-y-2">
-        <div className="flex gap-2">
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
-          />
-          <select
-            value={produceId}
-            onChange={(e) => setProduceId(Number(e.target.value))}
-            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
-          >
-            <option value="">Select produce</option>
-            {produceItems?.map((p: any) => (
-              <option key={p.id} value={p.id}>
-                {p.name} ({p.unit})
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex gap-2">
-          <input
-            type="number"
-            min="0"
-            step="0.5"
-            placeholder="Quantity"
-            value={quantity || ''}
-            onChange={(e) => setQuantity(Number(e.target.value))}
-            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
-          />
-          <input
-            type="number"
-            min="0"
-            placeholder="Price per unit (₹)"
-            value={pricePerUnit || ''}
-            onChange={(e) => setPricePerUnit(Number(e.target.value))}
-            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
-          />
-        </div>
-        <div className="flex gap-2">
-          <input
-            placeholder="Buyer (optional)"
-            value={buyer}
-            onChange={(e) => setBuyer(e.target.value)}
-            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
-          />
-          <input
-            placeholder="Notes (optional)"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
-          />
-        </div>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+        />
+        <select
+          value={produceId}
+          onChange={(e) => setProduceId(Number(e.target.value))}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+        >
+          <option value="">Select produce</option>
+          {produceItems?.map((p: any) => (
+            <option key={p.id} value={p.id}>
+              {p.name} ({p.unit})
+            </option>
+          ))}
+        </select>
+        <input
+          type="number"
+          min="0"
+          step="0.5"
+          placeholder="Quantity"
+          value={quantity || ''}
+          onChange={(e) => setQuantity(Number(e.target.value))}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+        />
+        <input
+          type="number"
+          min="0"
+          placeholder="Price per unit (₹)"
+          value={pricePerUnit || ''}
+          onChange={(e) => setPricePerUnit(Number(e.target.value))}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+        />
+        <input
+          placeholder="Buyer (optional)"
+          value={buyer}
+          onChange={(e) => setBuyer(e.target.value)}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+        />
+        <input
+          placeholder="Notes (optional)"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+        />
         <button
           onClick={addSale}
           className="bg-green-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-green-700 w-full"
