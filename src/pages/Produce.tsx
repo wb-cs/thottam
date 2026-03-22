@@ -135,7 +135,7 @@ function CatalogTab() {
           <select
             value={editing.category}
             onChange={(e) => setEditing({ ...editing, category: e.target.value })}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 form-select"
           >
             {categories.map((c) => (
               <option key={c} value={c}>
@@ -254,7 +254,7 @@ function HarvestTab() {
         <select
           value={produceId}
           onChange={(e) => setProduceId(Number(e.target.value))}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm form-select"
         >
           <option value="">Select produce</option>
           {produceItems?.map((p: any) => (
@@ -382,7 +382,7 @@ function SalesTab() {
         <select
           value={produceId}
           onChange={(e) => setProduceId(Number(e.target.value))}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm form-select"
         >
           <option value="">Select produce</option>
           {produceItems?.map((p: any) => (
