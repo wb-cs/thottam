@@ -96,14 +96,14 @@ export default function Layout() {
         </main>
       </div>
 
-      <nav className="bg-white border-t border-green-200 sticky bottom-0 z-50">
-        <div className="flex justify-around max-w-4xl mx-auto">
+      <nav className="bg-white border-t border-green-200 sticky bottom-0 z-50 overflow-x-auto">
+        <div className="flex min-w-max mx-auto max-w-4xl">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                `flex flex-col items-center py-2 px-3 text-xs transition-colors ${
+                `flex flex-col items-center py-2 px-4 text-xs transition-colors shrink-0 flex-1 ${
                   isActive
                     ? 'text-green-700 font-semibold'
                     : 'text-gray-500 hover:text-green-600'
